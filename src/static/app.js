@@ -911,7 +911,15 @@ document.addEventListener("DOMContentLoaded", () => {
 
   function shareOnTwitter(activityName, activityDetails) {
     const url = getActivityUrl(activityName);
-    const text = `Check out ${activityName} at Mergington High School! ${activityDetails.description}`;
+    // Twitter has a 280 character limit, URL takes ~23 characters
+    const maxTextLength = 257 - url.length;
+    let text = `Check out ${activityName} at Mergington High School! ${activityDetails.description}`;
+    
+    // Truncate text if it exceeds Twitter's character limit
+    if (text.length > maxTextLength) {
+      text = text.substring(0, maxTextLength - 3) + "...";
+    }
+    
     const twitterUrl = `https://twitter.com/intent/tweet?text=${encodeURIComponent(
       text
     )}&url=${encodeURIComponent(url)}`;
@@ -959,4 +967,32 @@ document.addEventListener("DOMContentLoaded", () => {
   checkAuthentication();
   initializeFilters();
   fetchActivities();
+
+  // Handle shared activity URL parameter
+  const urlParams = new URLSearchParams(window.location.search);
+  const sharedActivity = urlParams.get("activity");
+  if (sharedActivity) {
+    // Wait for activities to load, then scroll to the shared activity
+    setTimeout(() => {
+      const activityCards = Array.from(
+        document.querySelectorAll(".activity-card")
+      );
+      const targetCard = activityCards.find((card) => {
+        const heading = card.querySelector("h4");
+        return heading && heading.textContent === sharedActivity;
+      });
+
+      if (targetCard) {
+        // Scroll to the activity card
+        targetCard.scrollIntoView({ behavior: "smooth", block: "center" });
+        // Highlight the card temporarily
+        targetCard.style.border = "2px solid var(--secondary)";
+        targetCard.style.boxShadow = "0 0 15px rgba(255, 111, 0, 0.3)";
+        setTimeout(() => {
+          targetCard.style.border = "";
+          targetCard.style.boxShadow = "";
+        }, 3000);
+      }
+    }, 1000);
+  }
 });
