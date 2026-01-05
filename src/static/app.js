@@ -552,6 +552,21 @@ document.addEventListener("DOMContentLoaded", () => {
             .join("")}
         </ul>
       </div>
+      <div class="social-share-buttons">
+        <span class="share-label">Share:</span>
+        <button class="share-button facebook" data-activity="${name}" title="Share on Facebook">
+          <span>📘</span>
+        </button>
+        <button class="share-button twitter" data-activity="${name}" title="Share on Twitter">
+          <span>🐦</span>
+        </button>
+        <button class="share-button email" data-activity="${name}" title="Share via Email">
+          <span>📧</span>
+        </button>
+        <button class="share-button copy" data-activity="${name}" title="Copy link">
+          <span>🔗</span>
+        </button>
+      </div>
       <div class="activity-card-actions">
         ${
           currentUser
@@ -575,6 +590,24 @@ document.addEventListener("DOMContentLoaded", () => {
     const deleteButtons = activityCard.querySelectorAll(".delete-participant");
     deleteButtons.forEach((button) => {
       button.addEventListener("click", handleUnregister);
+    });
+
+    // Add click handlers for social share buttons
+    const shareButtons = activityCard.querySelectorAll(".share-button");
+    shareButtons.forEach((button) => {
+      button.addEventListener("click", (event) => {
+        const activityName = event.currentTarget.dataset.activity;
+        const activityDetails = allActivities[activityName];
+        if (button.classList.contains("facebook")) {
+          shareOnFacebook(activityName, activityDetails);
+        } else if (button.classList.contains("twitter")) {
+          shareOnTwitter(activityName, activityDetails);
+        } else if (button.classList.contains("email")) {
+          shareViaEmail(activityName, activityDetails);
+        } else if (button.classList.contains("copy")) {
+          copyActivityLink(activityName);
+        }
+      });
     });
 
     // Add click handler for register button (only when authenticated)
@@ -861,8 +894,115 @@ document.addEventListener("DOMContentLoaded", () => {
     setTimeRangeFilter,
   };
 
+  // Social sharing functions
+  function getActivityUrl(activityName) {
+    // Generate a shareable URL for the activity
+    const baseUrl = window.location.origin + window.location.pathname;
+    return `${baseUrl}?activity=${encodeURIComponent(activityName)}`;
+  }
+
+  function shareOnFacebook(activityName, activityDetails) {
+    const url = getActivityUrl(activityName);
+    const facebookUrl = `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(
+      url
+    )}`;
+    window.open(facebookUrl, "_blank", "width=600,height=400");
+  }
+
+  function shareOnTwitter(activityName, activityDetails) {
+    const url = getActivityUrl(activityName);
+    // Twitter counts URLs as 23 characters (t.co shortening) and has a 280 character limit
+    const twitterUrlLength = 23;
+    const maxTextLength = 280 - twitterUrlLength - 1; // -1 for space before URL
+    let text = `Check out ${activityName} at Mergington High School! ${activityDetails.description}`;
+    
+    // Truncate text if it exceeds Twitter's character limit
+    if (text.length > maxTextLength) {
+      text = text.substring(0, maxTextLength - 3) + "...";
+    }
+    
+    const twitterUrl = `https://twitter.com/intent/tweet?text=${encodeURIComponent(
+      text
+    )}&url=${encodeURIComponent(url)}`;
+    window.open(twitterUrl, "_blank", "width=600,height=400");
+  }
+
+  function shareViaEmail(activityName, activityDetails) {
+    const url = getActivityUrl(activityName);
+    const schedule = formatSchedule(activityDetails);
+    const subject = `Check out ${activityName} at Mergington High School`;
+    const body = `Hi,\n\nI wanted to share this activity with you:\n\n${activityName}\n${activityDetails.description}\n\nSchedule: ${schedule}\n\nLearn more: ${url}\n\nMergington High School`;
+    const mailtoUrl = `mailto:?subject=${encodeURIComponent(
+      subject
+    )}&body=${encodeURIComponent(body)}`;
+    window.location.href = mailtoUrl;
+  }
+
+  function copyActivityLink(activityName) {
+    const url = getActivityUrl(activityName);
+    navigator.clipboard
+      .writeText(url)
+      .then(() => {
+        showMessage("Link copied to clipboard!", "success");
+      })
+      .catch((err) => {
+        console.error("Failed to copy link:", err);
+        // Fallback for older browsers
+        const textArea = document.createElement("textarea");
+        textArea.value = url;
+        textArea.style.position = "fixed";
+        textArea.style.left = "-999999px";
+        document.body.appendChild(textArea);
+        textArea.select();
+        try {
+          document.execCommand("copy");
+          showMessage("Link copied to clipboard!", "success");
+        } catch (err) {
+          showMessage("Failed to copy link. Please copy manually.", "error");
+        }
+        document.body.removeChild(textArea);
+      });
+  }
+
   // Initialize app
   checkAuthentication();
   initializeFilters();
   fetchActivities();
+
+  // Handle shared activity URL parameter
+  const urlParams = new URLSearchParams(window.location.search);
+  const sharedActivity = urlParams.get("activity");
+  if (sharedActivity) {
+    // Wait for activities to load by checking periodically
+    const highlightSharedActivity = () => {
+      const activityCards = Array.from(
+        document.querySelectorAll(".activity-card")
+      );
+      
+      // Check if activities have loaded (no skeleton cards)
+      if (activityCards.length > 0 && !document.querySelector(".skeleton-card")) {
+        const targetCard = activityCards.find((card) => {
+          const heading = card.querySelector("h4");
+          return heading && heading.textContent === sharedActivity;
+        });
+
+        if (targetCard) {
+          // Scroll to the activity card
+          targetCard.scrollIntoView({ behavior: "smooth", block: "center" });
+          // Highlight the card temporarily with secondary color
+          targetCard.style.border = "2px solid var(--secondary)";
+          targetCard.style.boxShadow = "0 0 15px rgba(255, 111, 0, 0.3)";
+          setTimeout(() => {
+            targetCard.style.border = "";
+            targetCard.style.boxShadow = "";
+          }, 3000);
+        }
+      } else {
+        // Activities not loaded yet, check again
+        setTimeout(highlightSharedActivity, 100);
+      }
+    };
+    
+    highlightSharedActivity();
+  }
 });
