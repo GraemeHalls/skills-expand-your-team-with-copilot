@@ -911,8 +911,9 @@ document.addEventListener("DOMContentLoaded", () => {
 
   function shareOnTwitter(activityName, activityDetails) {
     const url = getActivityUrl(activityName);
-    // Twitter has a 280 character limit, URL takes ~23 characters
-    const maxTextLength = 257 - url.length;
+    // Twitter counts URLs as 23 characters (t.co shortening) and has a 280 character limit
+    const twitterUrlLength = 23;
+    const maxTextLength = 280 - twitterUrlLength - 1; // -1 for space before URL
     let text = `Check out ${activityName} at Mergington High School! ${activityDetails.description}`;
     
     // Truncate text if it exceeds Twitter's character limit
@@ -972,27 +973,36 @@ document.addEventListener("DOMContentLoaded", () => {
   const urlParams = new URLSearchParams(window.location.search);
   const sharedActivity = urlParams.get("activity");
   if (sharedActivity) {
-    // Wait for activities to load, then scroll to the shared activity
-    setTimeout(() => {
+    // Wait for activities to load by checking periodically
+    const highlightSharedActivity = () => {
       const activityCards = Array.from(
         document.querySelectorAll(".activity-card")
       );
-      const targetCard = activityCards.find((card) => {
-        const heading = card.querySelector("h4");
-        return heading && heading.textContent === sharedActivity;
-      });
+      
+      // Check if activities have loaded (no skeleton cards)
+      if (activityCards.length > 0 && !document.querySelector(".skeleton-card")) {
+        const targetCard = activityCards.find((card) => {
+          const heading = card.querySelector("h4");
+          return heading && heading.textContent === sharedActivity;
+        });
 
-      if (targetCard) {
-        // Scroll to the activity card
-        targetCard.scrollIntoView({ behavior: "smooth", block: "center" });
-        // Highlight the card temporarily
-        targetCard.style.border = "2px solid var(--secondary)";
-        targetCard.style.boxShadow = "0 0 15px rgba(255, 111, 0, 0.3)";
-        setTimeout(() => {
-          targetCard.style.border = "";
-          targetCard.style.boxShadow = "";
-        }, 3000);
+        if (targetCard) {
+          // Scroll to the activity card
+          targetCard.scrollIntoView({ behavior: "smooth", block: "center" });
+          // Highlight the card temporarily with secondary color
+          targetCard.style.border = "2px solid var(--secondary)";
+          targetCard.style.boxShadow = "0 0 15px rgba(255, 111, 0, 0.3)";
+          setTimeout(() => {
+            targetCard.style.border = "";
+            targetCard.style.boxShadow = "";
+          }, 3000);
+        }
+      } else {
+        // Activities not loaded yet, check again
+        setTimeout(highlightSharedActivity, 100);
       }
-    }, 1000);
+    };
+    
+    highlightSharedActivity();
   }
 });
